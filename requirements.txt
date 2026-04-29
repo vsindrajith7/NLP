@@ -1,7 +1,9 @@
-streamlit
-spacy
-transformers
-scikit-learn
-pandas
-torch
+streamlit==1.26.1
+spacy==3.7.5
+transformers==4.35.0
+scikit-learn==1.7.3
+pandas==2.3.4
+torch==2.1.0
+matplotlib==3.9.3
+seaborn==0.13.2
 https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.7.1/en_core_web_sm-3.7.1-py3-none-any.whl

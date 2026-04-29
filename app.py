@@ -1,8 +1,8 @@
+import importlib
 import streamlit as st
 import pandas as pd
 import re
 from collections import Counter
-from transformers import pipeline
 
 try:
     import spacy
@@ -17,6 +17,17 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import warnings
 warnings.filterwarnings('ignore')
+
+
+def require_package(package_name, import_name=None):
+    try:
+        return importlib.import_module(import_name or package_name)
+    except ModuleNotFoundError:
+        st.error(
+            f"Missing Python package: {package_name}.\n"
+            "Add it to requirements.txt and deploy again."
+        )
+        st.stop()
 
 # Set page config
 st.set_page_config(
@@ -130,19 +141,26 @@ def load_models():
     df['clean_commentary'] = df['commentary'].apply(clean_text)
     df = df[df['clean_commentary'].str.len() > 10].reset_index(drop=True)
 
-    # Load spacy
+    # Validate spaCy package and model
     if spacy is None:
-        st.error("spaCy is not installed. Please add it to requirements.txt and reinstall dependencies.")
+        st.error(
+            "spaCy is not installed.\n"
+            "Add 'spacy' to requirements.txt and deploy again."
+        )
         st.stop()
 
     try:
         nlp = spacy.load('en_core_web_sm')
     except OSError:
-        st.error("spaCy model 'en_core_web_sm' is missing. Install it via requirements.txt or run: python -m spacy download en_core_web_sm")
+        st.error(
+            "spaCy model 'en_core_web_sm' is missing.\n"
+            "Install it by adding the model to requirements.txt or running: ``python -m spacy download en_core_web_sm``"
+        )
         st.stop()
 
-    # Sentiment pipeline
-    sentiment_pipeline = pipeline(
+    # Load transformers pipeline lazily
+    transformers = require_package('transformers')
+    sentiment_pipeline = transformers.pipeline(
         'sentiment-analysis',
         model='distilbert-base-uncased-finetuned-sst-2-english',
         truncation=True,
