@@ -1,9 +1,14 @@
 import streamlit as st
 import pandas as pd
 import re
-import spacy
 from collections import Counter
 from transformers import pipeline
+
+try:
+    import spacy
+except ModuleNotFoundError:
+    spacy = None
+
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import LabelEncoder
@@ -126,7 +131,15 @@ def load_models():
     df = df[df['clean_commentary'].str.len() > 10].reset_index(drop=True)
 
     # Load spacy
-    nlp = spacy.load('en_core_web_sm')
+    if spacy is None:
+        st.error("spaCy is not installed. Please add it to requirements.txt and reinstall dependencies.")
+        st.stop()
+
+    try:
+        nlp = spacy.load('en_core_web_sm')
+    except OSError:
+        st.error("spaCy model 'en_core_web_sm' is missing. Install it via requirements.txt or run: python -m spacy download en_core_web_sm")
+        st.stop()
 
     # Sentiment pipeline
     sentiment_pipeline = pipeline(
@@ -153,6 +166,8 @@ def load_models():
 
     X_train_vec = tfidf.fit_transform(X_train)
     X_test_vec = tfidf.transform(X_test)
+
+    ml_model.fit(X_train_vec, y_train)
 
     # Compute sentiment for sample
     sample_df = df.head(500).copy()
