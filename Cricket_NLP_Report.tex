@@ -1,0 +1,377 @@
+\documentclass[12pt,a4paper]{article}
+
+% ── Packages ──────────────────────────────────────────────────
+\usepackage[margin=1in]{geometry}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{fancyhdr}
+\usepackage{amsmath}
+\usepackage{multicol}
+\usepackage{float}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{parskip}
+
+% ── Colors ────────────────────────────────────────────────────
+\definecolor{navyblue}{HTML}{0D1B2A}
+\definecolor{forestgreen}{HTML}{1B4332}
+\definecolor{teal}{HTML}{028090}
+\definecolor{accent}{HTML}{02C39A}
+\definecolor{lightgray}{HTML}{F0F4F8}
+\definecolor{slategray}{HTML}{64748B}
+
+% ── Section Formatting ────────────────────────────────────────
+\titleformat{\section}
+  {\large\bfseries\color{forestgreen}}
+  {\thesection.}{0.5em}{}[\color{accent}\rule{\linewidth}{1pt}]
+
+\titleformat{\subsection}
+  {\normalsize\bfseries\color{teal}}
+  {\thesubsection.}{0.5em}{}
+
+% ── Header / Footer ───────────────────────────────────────────
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\textcolor{slategray}{Cricket Match Report Analyzer — NLP Project}}
+\fancyhead[R]{\small\textcolor{slategray}{\thepage}}
+\fancyfoot[C]{\small\textcolor{slategray}{Adhi · Khaise · Meera · Indrajith}}
+\renewcommand{\headrulewidth}{0.4pt}
+
+% ── Hyperlink Setup ───────────────────────────────────────────
+\hypersetup{
+  colorlinks=true,
+  linkcolor=teal,
+  urlcolor=teal,
+  citecolor=teal
+}
+
+% ─────────────────────────────────────────────────────────────
+\begin{document}
+
+% ── Title Page ────────────────────────────────────────────────
+\begin{titlepage}
+  \centering
+  \vspace*{2cm}
+  {\Huge\bfseries\color{navyblue} Cricket Match Report Analyzer \par}
+  \vspace{0.5cm}
+  {\large\color{forestgreen} An End-to-End NLP Pipeline \par}
+  \vspace{0.3cm}
+  {\large\color{slategray} Named Entity Recognition · Sentiment Analysis · Text Classification \par}
+  \vspace{2cm}
+  \color{accent}\rule{0.6\linewidth}{1.5pt}
+  \vspace{1cm}
+
+  {\large\bfseries Team Members \par}
+  \vspace{0.5cm}
+  \begin{tabular}{ll}
+    \textbf{Adhi}      & Data Collection \& Preprocessing \\[4pt]
+    \textbf{Khaise}    & Named Entity Recognition \\[4pt]
+    \textbf{Meera}     & Sentiment Analysis \\[4pt]
+    \textbf{Indrajith} & Text Classification \& Integration \\
+  \end{tabular}
+
+  \vspace{2cm}
+  {\large\color{slategray} NLP Course Project \par}
+  \vspace{0.3cm}
+  {\normalsize\color{slategray} Tools: Python · spaCy · HuggingFace Transformers · scikit-learn · Google Colab \par}
+  \vfill
+  {\normalsize 2026}
+\end{titlepage}
+
+% ── Table of Contents ─────────────────────────────────────────
+\tableofcontents
+\newpage
+
+% ─────────────────────────────────────────────────────────────
+\section{Introduction}
+% ─────────────────────────────────────────────────────────────
+
+Cricket match commentary published on platforms like ESPNcricinfo and CricBuzz contains rich, unstructured textual information covering player performances, match outcomes, venues, and editorial sentiment. Manually extracting and categorizing this information is time-consuming and inconsistent. This project addresses that gap by building an automated NLP pipeline that can intelligently parse, analyze, and classify cricket commentary without human intervention.
+
+\subsection{Problem Statement}
+
+Given a cricket commentary text, the system should be able to:
+\begin{itemize}[leftmargin=1.5em]
+  \item Extract named entities such as player names, team names, and match venues
+  \item Detect the sentiment or tone of the commentary (positive or negative)
+  \item Classify the type of play described (four, six, wicket, no run, wide, etc.)
+\end{itemize}
+
+\subsection{Objectives}
+
+\begin{enumerate}[leftmargin=1.5em]
+  \item Build a \textbf{Named Entity Recognition (NER)} module using spaCy to extract players, teams, and venues
+  \item Develop a \textbf{Sentiment Analysis} module using HuggingFace's DistilBERT transformer
+  \item Implement a \textbf{Text Classification} module using TF-IDF and Logistic Regression to predict play type
+  \item Combine all three modules into a unified \textbf{demo pipeline} that analyzes any input text
+  \item Evaluate system performance using precision, recall, F1-score, and accuracy metrics
+\end{enumerate}
+
+% ─────────────────────────────────────────────────────────────
+\section{Dataset}
+% ─────────────────────────────────────────────────────────────
+
+\subsection{Data Source}
+
+The dataset was sourced from Kaggle (\texttt{abhishekgodara/cricket-commentary}) and consists of structured cricket ball-by-ball commentary. Each row in the dataset contains both structured metadata and free-text commentary in the following format:
+
+\begin{verbatim}
+<start_of_table> play type description is no run batting team is India
+bowling team is England bowler name is James Anderson batsman name is
+Shikhar Dhawan ... <end_of_table> commentary short of a length and some
+shape into off stump...
+\end{verbatim}
+
+\subsection{Dataset Statistics}
+
+\begin{table}[H]
+\centering
+\caption{Dataset Summary}
+\begin{tabular}{lr}
+\toprule
+\textbf{Attribute} & \textbf{Value} \\
+\midrule
+Training rows   & 50,204 \\
+Test rows       & 12,816 \\
+Validation rows & 27,381 \\
+\textbf{Total rows} & \textbf{90,401} \\
+After cleaning  & 89,338 \\
+Unique batsmen  & 393 \\
+Unique bowlers  & 268 \\
+Play type classes & 9 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Play Type Distribution}
+
+The dataset contains 9 distinct play type labels. As shown in Figure~\ref{fig:dataset}, \textit{no run} is the dominant class with over 51,000 instances, followed by \textit{run} with approximately 26,000 instances. Rare classes such as \textit{no ball} (121 rows) and \textit{bye} (180 rows) present a class imbalance challenge.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth]{chart1.jpg}
+  \caption{Play Type Distribution and Commentary Text Length — Section 1 (Adhi)}
+  \label{fig:dataset}
+\end{figure}
+
+% ─────────────────────────────────────────────────────────────
+\section{Methodology}
+% ─────────────────────────────────────────────────────────────
+
+\subsection{Data Preprocessing — Adhi}
+
+Each raw row was parsed using Python's \texttt{re} (regex) module to extract structured fields from the \texttt{<start\_of\_table>...<end\_of\_table>} format, producing the following columns: \texttt{play\_type}, \texttt{batting\_team}, \texttt{bowling\_team}, \texttt{bowler}, \texttt{batsman}, \texttt{runs}, \texttt{dismissal}, and \texttt{commentary}.
+
+The commentary text was then cleaned by:
+\begin{itemize}[leftmargin=1.5em]
+  \item Removing residual HTML tags and URLs
+  \item Stripping non-alphanumeric characters except basic punctuation
+  \item Collapsing multiple whitespace characters
+  \item Discarding rows with fewer than 10 characters of commentary
+\end{itemize}
+
+\subsection{Named Entity Recognition — Khaise}
+
+Named Entity Recognition was performed using spaCy's \texttt{en\_core\_web\_sm} model combined with domain-specific keyword matching. The extraction strategy used two complementary approaches:
+
+\begin{enumerate}[leftmargin=1.5em]
+  \item \textbf{Structured field extraction}: Player names (batsman, bowler) and team names were extracted directly from the parsed structured fields, yielding 100\% coverage on all rows
+  \item \textbf{spaCy NER}: Additional player mentions in free-text commentary were detected using the \texttt{PERSON} entity label
+  \item \textbf{Keyword matching}: A curated list of 13 international cricket venues (e.g., Wankhede, Eden Gardens, Lord's) was matched against the commentary text
+\end{enumerate}
+
+\subsection{Sentiment Analysis — Meera}
+
+Sentiment analysis was performed using HuggingFace's \texttt{distilbert-base-uncased-finetuned-sst-2-english} model via the \texttt{transformers} pipeline. This pre-trained transformer model classifies each commentary as \textbf{POSITIVE} or \textbf{NEGATIVE} with an associated confidence score. Text was truncated to 512 tokens to fit within the model's maximum input length.
+
+\subsection{Text Classification — Indrajith}
+
+Play type classification was implemented as a two-stage pipeline:
+
+\begin{enumerate}[leftmargin=1.5em]
+  \item \textbf{TF-IDF Vectorization}: Commentary text was converted to a numerical feature matrix using \texttt{TfidfVectorizer} with a vocabulary of 5,000 features and bigrams (\texttt{ngram\_range=(1,2)}). Bigrams allow the model to capture multi-word patterns such as ``drives through covers'' or ``clean bowled''
+  \item \textbf{Logistic Regression}: A \texttt{LogisticRegression} classifier (C=1.0, max\_iter=300) was trained on the TF-IDF features using an 80/20 train-test split with stratification to preserve class proportions
+\end{enumerate}
+
+% ─────────────────────────────────────────────────────────────
+\section{Results}
+% ─────────────────────────────────────────────────────────────
+
+\subsection{Named Entity Recognition Results}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth]{chart2.jpg}
+  \caption{Top 10 Most Mentioned Players and Teams — Section 2 (Khaise)}
+  \label{fig:ner}
+\end{figure}
+
+The NER module achieved 100\% coverage for both player names and team names across all 500 test rows, as structured fields provided reliable ground-truth extraction. Virat Kohli was the most frequently mentioned player (155 times), followed by Ajinkya Rahane (130) and James Anderson (120) in the sampled data.
+
+\subsection{Sentiment Analysis Results}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth]{chart3.jpg}
+  \caption{Sentiment Distribution and Confidence Scores — Section 3 (Meera)}
+  \label{fig:sentiment}
+\end{figure}
+
+\begin{table}[H]
+\centering
+\caption{Sentiment Analysis Results (500 samples)}
+\begin{tabular}{lrr}
+\toprule
+\textbf{Sentiment} & \textbf{Count} & \textbf{Percentage} \\
+\midrule
+NEGATIVE & 313 & 62.6\% \\
+POSITIVE & 187 & 37.4\% \\
+\midrule
+\textbf{Avg Confidence} & \multicolumn{2}{c}{\textbf{93.4\%}} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The majority of commentary (62.6\%) was classified as NEGATIVE, which is consistent with the nature of cricket commentary — most deliveries are dot balls, defensive plays, or technical descriptions that carry a cautious or neutral-to-negative tone. The average model confidence of 93.4\% indicates the model is highly certain in its predictions, as further evidenced by the confidence score histogram in Figure~\ref{fig:sentiment} where most scores cluster near 1.0.
+
+\subsection{Text Classification Results}
+
+\begin{table}[H]
+\centering
+\caption{Classification Report — Play Type Prediction}
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Class} & \textbf{Precision} & \textbf{Recall} & \textbf{F1-Score} & \textbf{Support} \\
+\midrule
+no run   & 0.91 & 0.97 & 0.94 & 10,298 \\
+run      & 0.89 & 0.85 & 0.87 &  5,194 \\
+four     & 0.87 & 0.80 & 0.83 &  1,286 \\
+out      & 0.87 & 0.78 & 0.82 &    428 \\
+six      & 0.90 & 0.74 & 0.81 &    278 \\
+wide     & 0.86 & 0.61 & 0.72 &    199 \\
+leg bye  & 0.96 & 0.37 & 0.53 &    125 \\
+bye      & 1.00 & 0.14 & 0.24 &     36 \\
+no ball  & 0.00 & 0.00 & 0.00 &     24 \\
+\midrule
+\textbf{Accuracy}      & \multicolumn{4}{c}{\textbf{90.06\%}} \\
+\textbf{Weighted Avg}  & 0.90 & 0.90 & 0.90 & 17,868 \\
+\textbf{Macro Avg}     & 0.81 & 0.58 & 0.64 & 17,868 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The classifier achieved \textbf{90.06\% overall accuracy} on 17,868 test samples. High-frequency classes (no run, run, four) performed well with F1-scores above 0.83. Low-frequency classes such as \textit{no ball} (24 samples) and \textit{bye} (36 samples) suffered from insufficient training data, a known limitation of imbalanced classification tasks.
+
+% ─────────────────────────────────────────────────────────────
+\section{Demo: Full Pipeline}
+% ─────────────────────────────────────────────────────────────
+
+The \texttt{analyze\_commentary()} function integrates all three modules into a single unified pipeline. Given the input:
+
+\begin{quote}
+\textit{``Kohli drives beautifully through the covers for a magnificent four! The crowd erupts at Wankhede as India take control of the chase.''}
+\end{quote}
+
+The system produces:
+
+\begin{table}[H]
+\centering
+\caption{Demo Output — Full Pipeline}
+\begin{tabular}{ll}
+\toprule
+\textbf{Module}  & \textbf{Output} \\
+\midrule
+NER — Venue      & Wankhede \\
+NER — Players    & None (spaCy missed ``Kohli'' as standalone surname) \\
+Sentiment        & \textbf{POSITIVE} (confidence: 1.000) \\
+Play Type        & \textbf{four} (confidence: 84.80\%) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% ─────────────────────────────────────────────────────────────
+\section{Discussion}
+% ─────────────────────────────────────────────────────────────
+
+\subsection{Strengths}
+
+\begin{itemize}[leftmargin=1.5em]
+  \item The TF-IDF + Logistic Regression classifier is lightweight, interpretable, and achieved 90\% accuracy — a strong baseline for a 9-class classification problem
+  \item Using structured fields for NER provided reliable 100\% coverage for player and team extraction
+  \item The DistilBERT model provided high-confidence sentiment predictions (avg 93.4\%) without any fine-tuning on cricket-specific data
+  \item The pipeline is modular — each component (NER, sentiment, classification) can be improved independently
+\end{itemize}
+
+\subsection{Limitations}
+
+\begin{itemize}[leftmargin=1.5em]
+  \item \textbf{Class imbalance}: Rare classes (no ball, bye) had too few training samples for the model to learn effectively
+  \item \textbf{NER from commentary text}: spaCy's general-purpose model occasionally misses standalone surnames (e.g., ``Kohli'' without a first name)
+  \item \textbf{Sentiment model}: The DistilBERT model was trained on movie reviews (SST-2 dataset), not cricket commentary, which may cause some misclassifications
+  \item \textbf{Team parsing}: A regex parsing issue caused bowling team names to occasionally include extra text (e.g., ``England total runs'' instead of ``England'')
+\end{itemize}
+
+\subsection{Future Work}
+
+\begin{itemize}[leftmargin=1.5em]
+  \item Fine-tune a sentiment model on cricket-specific commentary data
+  \item Use SMOTE or oversampling to handle class imbalance for rare play types
+  \item Replace regex parsing with a more robust structured data extractor
+  \item Deploy as a Streamlit web application on Hugging Face Spaces or Streamlit Cloud
+  \item Extend NER with a cricket-specific named entity model trained on annotated data
+\end{itemize}
+
+% ─────────────────────────────────────────────────────────────
+\section{Conclusion}
+% ─────────────────────────────────────────────────────────────
+
+This project successfully built an end-to-end NLP pipeline for cricket commentary analysis. The system combines three NLP modules — Named Entity Recognition, Sentiment Analysis, and Text Classification — into a unified pipeline capable of analyzing any cricket commentary text in real time.
+
+Key results:
+\begin{itemize}[leftmargin=1.5em]
+  \item \textbf{90.06\% classification accuracy} across 9 play type classes
+  \item \textbf{100\% NER coverage} for player and team extraction
+  \item \textbf{93.4\% average confidence} in sentiment predictions
+  \item A working demo function that processes 90,401 rows of real cricket data
+\end{itemize}
+
+The project demonstrates that even with simple, efficient models (TF-IDF + Logistic Regression), high accuracy is achievable on domain-specific NLP tasks when the training data is large and well-structured.
+
+% ─────────────────────────────────────────────────────────────
+\section*{Team Contributions}
+% ─────────────────────────────────────────────────────────────
+\addcontentsline{toc}{section}{Team Contributions}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{ll}
+\toprule
+\textbf{Member} & \textbf{Contribution} \\
+\midrule
+Adhi      & Data loading, parsing, cleaning, exploratory analysis \\
+Khaise    & NER module, spaCy integration, entity extraction charts \\
+Meera     & Sentiment analysis, DistilBERT pipeline, visualization \\
+Indrajith & TF-IDF classifier, Logistic Regression, demo function, deployment \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% ─────────────────────────────────────────────────────────────
+\section*{References}
+% ─────────────────────────────────────────────────────────────
+\addcontentsline{toc}{section}{References}
+
+\begin{enumerate}[leftmargin=1.5em]
+  \item Honnibal, M., \& Montani, I. (2017). spaCy 2: Natural language understanding with Bloom embeddings, convolutional neural networks and incremental parsing.
+  \item Wolf, T., et al. (2020). HuggingFace's Transformers: State-of-the-art Natural Language Processing. \textit{EMNLP 2020}.
+  \item Pedregosa, F., et al. (2011). Scikit-learn: Machine Learning in Python. \textit{JMLR 12}, 2825--2830.
+  \item Sanh, V., et al. (2019). DistilBERT, a distilled version of BERT: smaller, faster, cheaper and lighter. \textit{arXiv:1910.01108}.
+  \item Dataset: Godara, A. (2023). Cricket Commentary Dataset. \textit{Kaggle}. \url{https://www.kaggle.com/datasets/abhishekgodara/cricket-commentary}
+\end{enumerate}
+
+\end{document}
