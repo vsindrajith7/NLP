@@ -327,4 +327,4 @@ with col2:
 
 # Footer
 st.markdown("---")
-st.markdown("Built with ❤️ using Streamlit, spaCy, Transformers, and scikit-learn")
+st.markdown("Built with  using Streamlit, spaCy, Transformers, and scikit-learn")
