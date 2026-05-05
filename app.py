@@ -3,6 +3,8 @@ import streamlit as st
 import pandas as pd
 import re
 from collections import Counter
+import pickle
+import os
 
 try:
     import spacy
@@ -98,49 +100,6 @@ st.markdown("""
 # Load data and models
 @st.cache_resource
 def load_models():
-    # Load data
-    train = pd.read_csv('train.csv')
-    test = pd.read_csv('test.csv')
-    val = pd.read_csv('validation.csv')
-    df_raw = pd.concat([train, test, val], ignore_index=True)
-
-    # Parse data
-    def parse_row(text):
-        text = str(text)
-        def get(field):
-            m = re.search(field + r' is ([^<]+?)(?= \w+ \w+ is |<end_of_table>)', text)
-            return m.group(1).strip() if m else ''
-        commentary = ''
-        if '<end_of_table>' in text:
-            after = text.split('<end_of_table>')[1]
-            commentary = after.replace('commentary', '', 1).strip()
-        return {
-            'play_type': get('play type description'),
-            'batting_team': get('batting team'),
-            'bowling_team': get('bowling team'),
-            'bowler': get('bowler name'),
-            'batsman': get('batsman name'),
-            'runs': get('total runs on delivery'),
-            'dismissal': get('dismissal is'),
-            'commentary': commentary
-        }
-
-    parsed = df_raw['rows'].apply(parse_row)
-    df = pd.DataFrame(list(parsed))
-
-    # Clean text
-    def clean_text(text):
-        if not isinstance(text, str) or text.strip() == '':
-            return ''
-        text = re.sub(r'<.*?>', '', text)
-        text = re.sub(r'http\S+', '', text)
-        text = re.sub(r"[^A-Za-z0-9.,!?'\s]", ' ', text)
-        text = re.sub(r'\s+', ' ', text).strip()
-        return text
-
-    df['clean_commentary'] = df['commentary'].apply(clean_text)
-    df = df[df['clean_commentary'].str.len() > 10].reset_index(drop=True)
-
     # Validate spaCy package and model
     if spacy is None:
         st.error(
@@ -167,35 +126,87 @@ def load_models():
         max_length=512
     )
 
-    # Train classifier
-    clf_df = df[df['play_type'].notna() & (df['play_type'] != '')].copy()
-    clf_df = clf_df[clf_df['clean_commentary'].str.len() > 10].copy()
+    cache_file = 'models_cache.pkl'
+    if os.path.exists(cache_file):
+        with open(cache_file, 'rb') as f:
+            df, sample_df, tfidf, ml_model, le = pickle.load(f)
+    else:
+        # Load data
+        train = pd.read_csv('train.csv')
+        test = pd.read_csv('test.csv')
+        val = pd.read_csv('validation.csv')
+        df_raw = pd.concat([train, test, val], ignore_index=True)
 
-    le = LabelEncoder()
-    clf_df['label'] = le.fit_transform(clf_df['play_type'])
+        # Parse data
+        def parse_row(text):
+            text = str(text)
+            def get(field):
+                m = re.search(field + r' is ([^<]+?)(?= \w+ \w+ is |<end_of_table>)', text)
+                return m.group(1).strip() if m else ''
+            commentary = ''
+            if '<end_of_table>' in text:
+                after = text.split('<end_of_table>')[1]
+                commentary = after.replace('commentary', '', 1).strip()
+            return {
+                'play_type': get('play type description'),
+                'batting_team': get('batting team'),
+                'bowling_team': get('bowling team'),
+                'bowler': get('bowler name'),
+                'batsman': get('batsman name'),
+                'runs': get('total runs on delivery'),
+                'dismissal': get('dismissal is'),
+                'commentary': commentary
+            }
 
-    X = clf_df['clean_commentary']
-    y = clf_df['label']
+        parsed = df_raw['rows'].apply(parse_row)
+        df = pd.DataFrame(list(parsed))
 
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
+        # Clean text
+        def clean_text(text):
+            if not isinstance(text, str) or text.strip() == '':
+                return ''
+            text = re.sub(r'<.*?>', '', text)
+            text = re.sub(r'http\S+', '', text)
+            text = re.sub(r"[^A-Za-z0-9.,!?'\s]", ' ', text)
+            text = re.sub(r'\s+', ' ', text).strip()
+            return text
 
-    tfidf = TfidfVectorizer(max_features=5000, ngram_range=(1, 2))
-    ml_model = LogisticRegression(max_iter=300, C=1.0)
+        df['clean_commentary'] = df['commentary'].apply(clean_text)
+        df = df[df['clean_commentary'].str.len() > 10].reset_index(drop=True)
 
-    X_train_vec = tfidf.fit_transform(X_train)
-    X_test_vec = tfidf.transform(X_test)
+        # Train classifier
+        clf_df = df[df['play_type'].notna() & (df['play_type'] != '')].copy()
+        clf_df = clf_df[clf_df['clean_commentary'].str.len() > 10].copy()
 
-    ml_model.fit(X_train_vec, y_train)
+        le = LabelEncoder()
+        clf_df['label'] = le.fit_transform(clf_df['play_type'])
 
-    # Compute sentiment for sample
-    sample_df = df.head(500).copy()
-    sentiments = sample_df['clean_commentary'].apply(lambda x: get_sentiment(x, sentiment_pipeline))
-    sample_df['sentiment_label'] = sentiments.apply(lambda x: x[0])
-    sample_df['sentiment_score'] = sentiments.apply(lambda x: x[1])
+        X = clf_df['clean_commentary']
+        y = clf_df['label']
+
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
+
+        tfidf = TfidfVectorizer(max_features=5000, ngram_range=(1, 2))
+        ml_model = LogisticRegression(max_iter=300, C=1.0)
+
+        X_train_vec = tfidf.fit_transform(X_train)
+        X_test_vec = tfidf.transform(X_test)
+
+        ml_model.fit(X_train_vec, y_train)
+
+        # Compute sentiment for sample
+        sample_df = df.head(500).copy()
+        sentiments = sample_df['clean_commentary'].apply(lambda x: get_sentiment(x, sentiment_pipeline))
+        sample_df['sentiment_label'] = sentiments.apply(lambda x: x[0])
+        sample_df['sentiment_score'] = sentiments.apply(lambda x: x[1])
+
+        # Save to cache
+        with open(cache_file, 'wb') as f:
+            pickle.dump((df, sample_df, tfidf, ml_model, le), f)
 
     return df, sample_df, nlp, sentiment_pipeline, tfidf, ml_model, le
 
-with st.spinner("Loading data and NLP models... this may take a minute on first run."):
+with st.spinner("Loading NLP models and data... (first run may take a minute, subsequent runs are fast)"):
     df, sample_df, nlp, sentiment_pipeline, tfidf, ml_model, le = load_models()
 
 CRICKET_VENUES = [
