@@ -195,7 +195,8 @@ def load_models():
 
     return df, sample_df, nlp, sentiment_pipeline, tfidf, ml_model, le
 
-df, sample_df, nlp, sentiment_pipeline, tfidf, ml_model, le = load_models()
+with st.spinner("Loading data and NLP models... this may take a minute on first run."):
+    df, sample_df, nlp, sentiment_pipeline, tfidf, ml_model, le = load_models()
 
 CRICKET_VENUES = [
     'wankhede', 'eden gardens', 'lords', "lord's", 'oval', 'gabba',
