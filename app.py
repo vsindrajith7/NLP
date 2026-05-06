@@ -12,6 +12,7 @@ from sklearn.metrics import accuracy_score
 import matplotlib.pyplot as plt
 import seaborn as sns
 import warnings
+import pickle
 warnings.filterwarnings('ignore')
 
 # Set page config
@@ -140,30 +141,11 @@ def load_and_preprocess_data():
     return df
 
 @st.cache_resource
-def train_classifier(df):
-    """Train the play type classifier"""
-    clf_df = df[df['play_type'].notna() & (df['play_type'] != '')].copy()
-    clf_df = clf_df[clf_df['clean_commentary'].str.len() > 10].copy()
-
-    le = LabelEncoder()
-    clf_df['label'] = le.fit_transform(clf_df['play_type'])
-
-    X = clf_df['clean_commentary']
-    y = clf_df['label']
-
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
-
-    tfidf = TfidfVectorizer(max_features=5000, ngram_range=(1, 2))
-    ml_model = LogisticRegression(max_iter=300, C=1.0)
-
-    X_train_vec = tfidf.fit_transform(X_train)
-    X_test_vec = tfidf.transform(X_test)
-
-    ml_model.fit(X_train_vec, y_train)
-    y_pred = ml_model.predict(X_test_vec)
-    acc = accuracy_score(y_test, y_pred)
-
-    return tfidf, ml_model, le, acc
+def load_classifier():
+    """Load the pre-trained classifier"""
+    with open('classifier.pkl', 'rb') as f:
+        tfidf, ml_model, le = pickle.load(f)
+    return tfidf, ml_model, le
 
 def extract_entities(row, nlp):
     """Extract entities from a row"""
@@ -223,7 +205,7 @@ def main():
     # Load models and data
     nlp, sentiment_pipeline = load_models()
     df = load_and_preprocess_data()
-    tfidf, ml_model, le, acc = train_classifier(df)
+    tfidf, ml_model, le = load_classifier()
 
     # Sidebar
     st.sidebar.title("🏏 Cricket NLP Analyzer")
